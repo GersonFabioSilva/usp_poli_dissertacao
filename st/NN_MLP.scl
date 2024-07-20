@@ -1,0 +1,172 @@
+﻿TYPE "scaler_type"
+VERSION : 0.1
+   STRUCT
+      data_min : Array[1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      data_max : Array[1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      range_min : Real;
+      range_max : Real;
+   END_STRUCT;
+
+END_TYPE
+
+TYPE "NN_config_type"
+VERSION : 0.1
+   STRUCT
+      NumLayers : Int := 5;
+      NeuronPerLayer : Array[1.."MAX_NO_LAYERS"] of Int := [7, 128, 64, 32, 6];
+      ActivationFunction : Array[1.."MAX_NO_LAYERS"] of Int := [4(2), 5];   // 1=sigmoid; 2=ReLU; 3= Tanh; 4=LeakyReLU; 5= Softmax
+      neuron : Array[1.."MAX_NO_LAYERS", 1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      weight : Array[1.."MAX_NO_LAYERS", 1.."MAX_NO_NEURONS_PER_LAYER", 1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      bias : Array[1.."MAX_NO_LAYERS", 1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      scalerParam { S7_SetPoint := 'False'} : "scaler_type";
+   END_STRUCT;
+
+END_TYPE
+
+FUNCTION_BLOCK "NN_MLP"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      predict : Bool;
+      contPredict : Bool;
+      X : Array[1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+   END_VAR
+
+   VAR_OUTPUT 
+      done : Bool;
+      busy : Bool;
+      probability : Array[1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+   END_VAR
+
+   VAR_IN_OUT 
+      config : "NN_config_type";
+   END_VAR
+
+   VAR 
+      X_scaled : Array[1.."MAX_NO_NEURONS_PER_LAYER"] of Real;
+      p : Int;
+      n : Int;
+      neuron_L : Int;
+      "neuron_L+1" : Int;
+      k : Int;
+      layer_L : Int;
+      s1 { S7_SetPoint := 'True'} : Int;
+      s2 : Int;
+      S3 : Int;
+      S4 : Int;
+      statSumEXP : Real;
+      statEXP : Array[1..6] of Real;
+      statSoftmax : Array[1..6] of Real;
+      statTotalSum : Real;
+      predictRT {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      statMemRuntime : LReal;
+      timeExecution : LReal;
+   END_VAR
+
+
+BEGIN
+	#predictRT(CLK := #predict);
+	IF #predictRT.Q OR #contPredict THEN
+	    #timeExecution:= RUNTIME(#statMemRuntime);
+	    
+	    #done := FALSE;
+	    #busy := TRUE;
+	    
+	    REGION Entradas dos dados do processo  
+	        // normalização dos valores de entrada da rede neural. Dados retirados da função MinMaxScaler utilizada no tratamento dos dados da aplicação em python
+	        #config.scalerParam.data_min[1] := 295.3;
+	        #config.scalerParam.data_min[2] := 305.7;
+	        #config.scalerParam.data_min[3] := 1168.0;
+	        #config.scalerParam.data_min[4] := 3.8;
+	        #config.scalerParam.data_min[5] := 0.0;
+	        #config.scalerParam.data_min[6] := 0.0;
+	        #config.scalerParam.data_min[7] := 0.0;
+	        
+	        #config.scalerParam.data_max[1] := 304.5;
+	        #config.scalerParam.data_max[2] := 313.8;
+	        #config.scalerParam.data_max[3] := 2886.0;
+	        #config.scalerParam.data_max[4] := 76.6;
+	        #config.scalerParam.data_max[5] := 253.0;
+	        #config.scalerParam.data_max[6] := 1.0;
+	        #config.scalerParam.data_max[7] := 1.0;
+	        
+	        #config.scalerParam.range_min := -1.0;
+	        #config.scalerParam.range_max := 1.0;
+	        
+	        FOR #n := 1 TO #config.NeuronPerLayer[1] DO
+	            #X_scaled[#n] := (#X[#n] - #config.scalerParam.data_min[#n]) /
+	            (#config.scalerParam.data_max[#n] - #config.scalerParam.data_min[#n]) *
+	            (#config.scalerParam.range_max - #config.scalerParam.range_min) +
+	            #config.scalerParam.range_min;
+	        END_FOR;
+	        
+	    END_REGION
+	    
+	    REGION Transferencia dados de entrada para a primeira camada da rede neural    
+	        FOR #"neuron_L" := 1 TO #config.NeuronPerLayer[1] DO
+	            #config.neuron[1, #"neuron_L"] := #X_scaled[#"neuron_L"];
+	        END_FOR;
+	    END_REGION
+	    
+	    REGION Forward
+	        
+	        FOR #layer_L := 1 TO #config.NumLayers - 1 DO
+	            FOR #"neuron_L+1" := 1 TO #config.NeuronPerLayer[#layer_L + 1] DO
+	                #config.neuron[#layer_L + 1, #"neuron_L+1"] := 0;
+	                FOR #"neuron_L" := 1 TO #config.NeuronPerLayer[#layer_L] DO
+	                    #config.neuron[#layer_L + 1, #"neuron_L+1"] := #config.neuron[#layer_L + 1, #"neuron_L+1"] +
+	                    (#config.neuron[#layer_L, #"neuron_L"] *
+	                    #config.weight[#layer_L, #"neuron_L+1", #"neuron_L"]);
+	                END_FOR;
+	                #config.neuron[#layer_L + 1, #"neuron_L+1"] := #config.neuron[#layer_L + 1, #"neuron_L+1"] + #config.bias[#layer_L, #"neuron_L+1"];
+	                
+	                CASE #config.ActivationFunction[#layer_L + 1] OF
+	                    1:
+	                        #config.neuron[#layer_L + 1, #"neuron_L+1"] := 1.0 / (1.0 + EXP(- #config.neuron[#layer_L + 1, #"neuron_L+1"]));
+	                    2:
+	                        IF #config.neuron[#layer_L + 1, #"neuron_L+1"] <= 0.0 THEN
+	                            #config.neuron[#layer_L + 1, #"neuron_L+1"] := 0.0;
+	                        END_IF;
+	                    3:
+	                        #config.neuron[#layer_L + 1, #"neuron_L+1"] := (EXP(#config.neuron[#layer_L + 1, #"neuron_L+1"])
+	                        - EXP(- #config.neuron[#layer_L + 1, #"neuron_L+1"]))
+	                        / (EXP(#config.neuron[#layer_L + 1, #"neuron_L+1"])
+	                        + EXP(- #config.neuron[#layer_L + 1, #"neuron_L+1"]));
+	                    4:
+	                        IF #config.neuron[#layer_L + 1, #"neuron_L+1"] <= 0.0 THEN
+	                            #config.neuron[#layer_L + 1, #"neuron_L+1"] := "ALPHA" * #config.neuron[#layer_L + 1, #"neuron_L+1"];
+	                        END_IF;
+	                    5:
+	                        IF #layer_L = #config.NumLayers - 1 THEN
+	                            #statSumEXP := 0.0;
+	                            #statTotalSum := 0.0;
+	                            FOR #s1 := 1 TO #config.NeuronPerLayer[#layer_L + 1] BY 1 DO
+	                                #statEXP[#s1] := EXP(#config.neuron[#layer_L + 1, #s1]);
+	                            END_FOR;
+	                            FOR #s2 := 1 TO #config.NeuronPerLayer[#layer_L + 1] BY 1 DO
+	                                #statSumEXP := #statSumEXP + #statEXP[#s2];
+	                            END_FOR;
+	                            FOR #S3 := 1 TO #config.NeuronPerLayer[#layer_L + 1] BY 1 DO
+	                                #statSoftmax[#S3] := #statEXP[#S3] / #statSumEXP;
+	                            END_FOR;
+	                            FOR #S4 := 1 TO #config.NeuronPerLayer[#layer_L + 1] BY 1 DO
+	                                #statTotalSum := #statTotalSum + #statSoftmax[#S4];
+	                            END_FOR;
+	                        END_IF;
+	                END_CASE;
+	            END_FOR;
+	        END_FOR;
+	        FOR #p := 1 TO #config.NeuronPerLayer["MAX_NO_LAYERS"] DO
+	            #probability[#p] := #statSoftmax[#p] * 100.0;
+	        END_FOR;
+	    END_REGION
+	        
+	        #done := TRUE;
+	        #busy := FALSE;
+	        #timeExecution := RUNTIME(#statMemRuntime);
+	        
+	    END_IF;
+	    
+	
+END_FUNCTION_BLOCK
+
