@@ -340,15 +340,15 @@ if __name__ == '__main__':
 
     param_grid = {
     'early_stop'            : [False, True],
-    'epochs'                : [10],# 25, 50],
-    'hidden_layer_size'     : [16],# 32, 64, 256, 512, 1024],
-    'regularize_activation' : [0.6],# 0.5, 0.4],
-    'regularize_entropy'    : [0.6],# 0.5, 0.4], 
-    'regularize_ridge'      : [0.2],# 0.1, 0.05], 
-    'batch_size'            : [64],# 128, 512],    
-    'weight_decay'          : [0.03],#0.01, 0.005],
-    'gamma'                 : [0.4],#,0.5, 0.6],
-    'lr'                    : [0.1]#, 0.05, 0.005]
+    'epochs'                : [10, 25, 50],
+    'hidden_layer_size'     : [16, 32, 64, 256, 512, 1024],
+    'regularize_activation' : [0.6, 0.5, 0.4],
+    'regularize_entropy'    : [0.6, 0.5, 0.4], 
+    'regularize_ridge'      : [0.2, 0.1, 0.05], 
+    'batch_size'            : [64, 128, 512],    
+    'weight_decay'          : [0.03,0.01, 0.005],
+    'gamma'                 : [0.4,0.5, 0.6],
+    'lr'                    : [0.1, 0.05, 0.005]
     }
 
     time_start_grid = time.time()
