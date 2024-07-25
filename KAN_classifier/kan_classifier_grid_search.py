@@ -118,15 +118,12 @@ class KAN(BaseEstimator):
                 self.hidden_layer_sizes + [num_outputs],
             ).to(self.device)
 
-            print(f"Número de parâmetros ajustáveis: {self.count_parameters()}")
+            print(f"-> número de parâmetros ajustáveis: {self.count_parameters()}")
 
-            print("Parâmetros antes da reinicialização:")
-            display_parameters(self.model)
             # Reiniciar os parâmetros antes do treinamento
+            print('-> parâmetros de treinamento reiniciados\n')
             self.model.apply(reset_parameters)
-            print("Parâmetros após a reinicialização:")
-            display_parameters(self.model)
-
+           
         X_train, X_tune, y_train, y_tune = train_test_split(X, y, test_size=batch_size, random_state=42, shuffle=True)
 
         dset_train = torch.utils.data.TensorDataset(X_train, y_train)
@@ -287,9 +284,9 @@ if __name__ == '__main__':
                                                 
                                                 progress = round(100*i/6561,2)
 
-                                                print(f'Teste número: {i}')
-                                                print(f'Progresso: {progress} %')
-                                                print(f'Parâmetros: layers {h_layer_size} | activation: {r_activation} | entropy: {r_entropy} | ridge: {r_ridge} | batch size: {b_size} | decay: {w_decay} | gamma: {g} | learning reate: {l}')
+                                                print(f'\n-> teste número: {i}')
+                                                print(f'-> progresso: {progress} %')
+                                                print(f'-> parâmetros: 1 layer with {h_layer_size} neurons | activation: {r_activation} | entropy: {r_entropy} | ridge: {r_ridge} | batch size: {b_size} | decay: {w_decay} | gamma: {g} | learning reate: {l}')
                                                 
                                                 start_train = time.time()
 
