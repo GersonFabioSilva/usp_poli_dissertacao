@@ -1,7 +1,0 @@
-params,num_parameters,num_epochs,epoch_train_time,training_time,backpropagation_time,loss_min,max_cpu_usage,max_ram_usage,accuracy,f1_score,precision,recall,confusion_matrix
-"{'batch_size': 16, 'dropout_prob': 0.0, 'epochs': 8, 'hidden_layers': [16], 'learning_rate': 0.01, 'weight_decay': 0.0}",230,8,3.1677322387695312,26.336005926132202,0.6460638996149313,0.00016499427147209644,0.0,30.1,94.88508726455849,0.9482728237732871,0.9488186973020476,0.948850872645585,"[[1894    0    0    0    0    0]
- [  35 1668   28   10   86  125]
- [  12    0 1895    0    0    0]
- [   4   16   55 1919    1    0]
- [   0  149   32    0 1691   15]
- [   0   13    4    0    7 1915]]"
