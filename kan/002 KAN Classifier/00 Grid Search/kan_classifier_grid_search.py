@@ -364,6 +364,8 @@ if __name__ == '__main__':
     results_df = pd.DataFrame(grid_results)
     results_df.to_csv('grid_search_results.csv', index=False)
 
+    grid_results = grid_search(X_train, y_train, X_test, y_test, param_grid, device)
+
     best_results_df = pd.DataFrame(best_results)
     best_results_df.to_csv('grid_best_results.csv', index=False)
     
